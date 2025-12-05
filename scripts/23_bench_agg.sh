@@ -24,7 +24,6 @@ python3 -m sglang.bench_serving \
   --max-concurrency "${BENCH_MAX_CONCURRENCY}" \
   --base-url "${BASE_URL}" \
   --output-file "${OUT_FILE}" \
-  --tag "${TAG}" \
-  --ignore-eos
+  --tag "${TAG}"
 
 echo "Aggregated benchmark finished -> ${OUT_FILE}"
