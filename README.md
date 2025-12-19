@@ -274,6 +274,112 @@ ibstat | grep "Link layer"
 
 ---
 
+---
+
+## Extended Benchmarks: 1PxD Scaling
+
+### Overview
+
+The extended benchmark system supports testing with multiple decode servers (1PxD = 1 Prefill, x Decoders):
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    1PxD Configuration (x = 1-8)                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   ┌──────────────┐                    ┌─────────────────────────┐   │
+│   │    GH200     │                    │      A100 Cluster       │   │
+│   │   (Prefill)  │                    │  ┌───────┐ ┌───────┐    │   │
+│   │              │       NIXL/UCX     │  │Decode │ │Decode │    │   │
+│   │  cg1n1       │ ─────────────────► │  │ GPU 0 │ │ GPU 1 │... │   │
+│   │  172.16.40.79│                    │  │:30000 │ │:30001 │    │   │
+│   │              │                    │  └───────┘ └───────┘    │   │
+│   └──────────────┘                    │      (up to 8 GPUs)     │   │
+│                                       │  172.16.40.99           │   │
+│                                       └─────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Extended Parameter Ranges
+
+| Parameter | Standard Range | Extended Range |
+|-----------|---------------|----------------|
+| `input_len` | 128, 512 | 512, 1024, 2048, 4096 |
+| `output_len` | 64, 128 | 128, 256, 512, 1024 |
+| `concurrency` | 8, 32 | 64, 128, 256 |
+| `num_prompts` | 50, 100 | 200, 500 |
+
+### Running 1PxD Experiments
+
+#### Step 1: Start Prefill Server on GH200
+
+```bash
+# On cg1n1 (GH200)
+bash scripts/51_run_prefill_gh200_1pxd.sh
+```
+
+#### Step 2: Start Multiple Decode Servers on A100
+
+```bash
+# On A100 node - start 8 decode servers (one per GPU)
+NUM_DECODERS=8 bash scripts/50_run_multi_decode_a100.sh
+```
+
+#### Step 3: Run 1PxD Scaling Sweep
+
+```bash
+# On A100 node - tests 1P1D, 1P2D, 1P4D, 1P8D configurations
+bash experiment/run_1pxd_sweep.sh
+
+# Or with custom parameters
+bash experiment/run_1pxd_sweep.sh \
+  --decoders 1,2,4,8 \
+  --num-prompts 200 \
+  --input-len 1024 \
+  --output-len 256 \
+  --concurrency 128
+```
+
+#### Step 4: Extended Parameter Sweep
+
+```bash
+# Full sweep with maximum parameters
+bash experiment/run_extended_sweep.sh
+
+# Quick test
+bash experiment/run_extended_sweep.sh \
+  --modes pd_inter_1p1d,pd_inter_1p8d \
+  --num-prompts 100 \
+  --input-lens 1024,2048
+```
+
+### Analyzing Results
+
+```bash
+# Generate 1PxD scaling plots
+python3 benchmarks/plot_1pxd_scaling.py
+
+# Output:
+# - benchmarks/results/1pxd_scaling_analysis.png
+# - benchmarks/results/1pxd_throughput_heatmap.png
+```
+
+### Scripts Reference
+
+| Script | Description |
+|--------|-------------|
+| `scripts/00_extended_config.sh` | Extended configuration with max parameters |
+| `scripts/50_run_multi_decode_a100.sh` | Start x decode servers on A100 GPUs |
+| `scripts/51_run_prefill_gh200_1pxd.sh` | Start prefill server for 1PxD |
+| `scripts/52_run_router_1pxd.sh` | Start router for 1PxD config |
+| `scripts/53_bench_1pxd.sh` | Single 1PxD benchmark run |
+| `experiment/run_1pxd_sweep.sh` | Automated 1PxD scaling sweep |
+| `experiment/run_extended_sweep.sh` | Full extended parameter sweep |
+| `benchmarks/plot_1pxd_scaling.py` | Plot scaling analysis |
+
+---
+
 ## License
 
 MIT - Feel free to adapt for your own experiments.
